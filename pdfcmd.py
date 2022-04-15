@@ -86,11 +86,20 @@ def rotate(pdf):
         for idx, entry in enumerate(all_idx):
             if entry:
                 if mode == "R":
-                    pdf.pages[idx].Rotate += 90
+                    try:
+                        pdf.pages[idx].Rotate += 90
+                    except AttributeError:
+                        pdf.pages[idx].Rotate = 90
                 elif mode == "L":
-                    pdf.pages[idx].Rotate += -90
+                    try:
+                        pdf.pages[idx].Rotate += -90
+                    except AttributeError:
+                        pdf.pages[idx].Rotate = -90
                 elif mode == "V":
-                    pdf.pages[idx].Rotate += 180
+                    try:
+                        pdf.pages[idx].Rotate += 180
+                    except AttributeError:
+                        pdf.pages[idx].Rotate = 180
     return pdf
 
 
