@@ -1,8 +1,9 @@
-from borb.pdf.pdf import PDF
+import pikepdf
 from optparse import OptionParser
 from glob import glob
+import os
 
-parser = OptionParser()  # TODO: help
+parser = OptionParser("Script to modify pdf-files (rotate, extract, delete pages, etc.).")
 parser.add_option("-f", "--file",       action="append",    type="string",  dest="filenames",       help="")  # TODO: help
 parser.add_option("-r", "--rotate",     action="append",    type="string",  dest="rotations",       help="")  # TODO: help
 parser.add_option("-d", "--delete",     action="append",    type="string",  dest="deletions",       help="")  # TODO: help
@@ -15,28 +16,35 @@ options, args = parser.parse_args()
 
 def main():
     # 1 Read
-    pdfs = read()
+    pdfs, filenames = read()
 
     # 2.1 Rotate
     if options.rotations is not None:
         pdfs = [rotate(pdf) for pdf in pdfs]
 
     # 3 Save
-    for filename, pdf in zip(options.filenames, pdfs):
+    for filename, pdf in zip(filenames, pdfs):
         save((pdf, filename))
 
 
-def read() -> list:
+def read() -> tuple:
     """
     Reads PDF file(s) and returns list.
     :return:
     """
-    #TODO: glob einführen
-    pdfs = []
+    # Check paths
+    filenames = []
     for filename in options.filenames:
-        with open(filename, "rb") as file:
-            pdfs.append(PDF.loads(file))
-    return pdfs
+        if os.path.exists(filename):
+            filenames.append(filename)
+        else:
+            filenames += glob(filename)
+    # Read pdfs
+    pdfs = []
+    for filename in filenames:
+        print(filename)
+        pdfs.append(pikepdf.Pdf.open(filename, allow_overwriting_input=True))
+    return pdfs, filenames
 
 
 def save(*pdf_and_paths):
@@ -46,23 +54,19 @@ def save(*pdf_and_paths):
     :return:
     """
     for pdf_and_path in pdf_and_paths:
-        with open(pdf_and_path[1], "wb") as file:
-            PDF.dumps(file, pdf_and_path[0])
+        pdf_and_path[0].save(pdf_and_path[1])
 
 
 def rotate(pdf):
     """
     Syntax:
     Rotate left = Rotate counterclockwiese = L
-    twice = LL or RR
-    ::2 --> die 1,3,5,...
-    1::2 --> die 2,4,6,...
-    #TODO umstellen auf: R1-5,7,8 und R2n und H2n+1
+    #TODO R2n und H2n+1
     :param pdf:
     :return:
     """
 
-    n = int(pdf.get_document_info().get_number_of_pages())
+    n = len(pdf.pages)
 
     for rotation in options.rotations:
         # Determine requested pages for rotation
@@ -73,7 +77,7 @@ def rotate(pdf):
             if seq.isdigit() and 0 <= int(seq)-1 < n:
                 all_idx[int(seq)-1] = True
             elif "n" in seq:
-                pass
+                pass  # TODO
             elif "-" in seq:
                 lower, upper = [int(i) for i in seq.split("-")]
                 all_idx[lower-1:upper] = [True for _ in range(lower-1, upper)]
@@ -82,12 +86,11 @@ def rotate(pdf):
         for idx, entry in enumerate(all_idx):
             if entry:
                 if mode == "R":
-                    pdf.get_page(idx).rotate_right()
+                    pdf.pages[idx].Rotate += 90
                 elif mode == "L":
-                    pdf.get_page(idx).rotate_left()
-                elif mode  == "V":
-                    pdf.get_page(idx).rotate_right()
-                    pdf.get_page(idx).rotate_right()
+                    pdf.pages[idx].Rotate += -90
+                elif mode == "V":
+                    pdf.pages[idx].Rotate += 180
     return pdf
 
 
